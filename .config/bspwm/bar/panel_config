@@ -1,0 +1,158 @@
+#!/usr/bin/python
+
+import sys
+import subprocess
+from datetime import date, time, datetime
+
+color_greyed = 0x444444
+color_bg = 0x181818
+color_fg = 0xD8D8D8
+
+class Widget:
+    lastplace = 0
+    def __init__(self):
+        self.flags = ['l', 'c', 'r']
+        self.fgcol = -1
+        self.bgcol = -1
+        self.undcol = -1;
+        self.invert = 0;
+        self.placement = 0;
+        self.lineu = 0;
+        self.lineo = 0;
+        self.command = ""
+        self.cont = ""
+
+    def lemonstart(self):
+        if self.placement != Widget.lastplace and self.placement > 0:
+            print ("%{{{}}}".format(self.flags[self.placement]), end="")
+            Widget.lastplace = self.placement
+        if self.fgcol != -1:
+            print ("%{{F#{:06X}}}".format(self.fgcol), end="")
+        if self.bgcol != -1:
+            print ("%{{B#{:06X}}}".format(self.bgcol), end="")
+        if self.undcol != -1:
+            print ("%{{U#{:06X}}}".format(self.undcol), end="")
+        if self.invert == 1:
+            print ("%{R}", end="")
+        if self.lineu == 1:
+            print ("%{+u}", end="")
+        if self.lineo == 1:
+            print ("%{+o}", end="")
+        if self.command != "":
+            print("%{{A:{}:}}".format(self.command), end="")
+
+    def lemonend(self):
+        if self.fgcol != -1:
+            print ("%{F-}", end="")
+        if self.bgcol != -1:
+            print ("%{B-}", end="")
+        if self.undcol != -1:
+            print ("%{U-}", end="")
+        if self.invert == 1:
+            print ("%{R}", end="")
+        if self.lineu == 1:
+            print ("%{-u}", end="")
+        if self.lineo == 1:
+            print ("%{-o}", end="")
+        if self.command:
+            print ("%{A}", end="")
+
+    def lemonout(self):
+        self.lemonstart()
+        print (self.cont, end="")
+        self.lemonend()
+
+def handledt(pdt, wi):
+    wi.lineu = 1
+    state = pdt[0]
+    dt = pdt[1:]
+    wi.cont = " " + dt + " "
+    wi.command = "bspc desktop -f {}".format(dt)
+    if (state == 'f' or state == 'F'):
+        wi.fgcol = color_greyed
+    else:
+        wi.fgcol = color_fg
+    if (str.islower(state) == False):
+        wi.undcol = color_fg
+        wi.bgcol = color_greyed
+        wi.fgcol = color_fg
+    else:
+        wi.undcol = color_greyed
+        wi.bgcol = color_bg
+
+def handlewm(wm, widgets):
+    split = wm.split(':')
+    split.pop(0)
+    split.pop()
+    while len(widgets) < len(split):
+        widgets.insert(-1, Widget())
+    for i,dt in enumerate(split):
+        handledt(dt, widgets[i])
+
+#title
+def inittitle():
+    twi = Widget()
+    twi.bgcol = color_greyed
+    twi.placement = 1
+    twi.lineu = 1;
+    twi.undcol = color_fg
+    return twi
+
+def handletitle(twi, titlestr):
+    title = titlestr[1:-1]
+    if len(title) > 50:
+        title = title[:50] + "..."
+    twi.cont = " " + title + " "
+
+#clock
+def initclock():
+    cwi = Widget()
+    cwi.placement = 2
+    handleclock(cwi)
+    return cwi
+
+def handleclock(cwi):
+    dt = datetime.now()
+    cwi.cont = "{}:{:02} ".format(dt.hour, dt.minute, dt.second)
+
+#wifi
+def initwifi():
+    wfwi = Widget()
+    wfwi.placement = 2
+    return wfwi
+
+def handlewifi(wfwi):
+    proc = subprocess.check_output(['./blocks/wifi']).decode("utf-8").split('\n')
+    wfwi.cont = '\ue048'+proc[0]
+    wfwi.fgcol = int(proc[2][1:], 16)
+
+#separator
+
+def initsep():
+    sep = Widget()
+    sep.fgcol = color_greyed
+    sep.placement = -1
+    sep.cont = ' | '
+    return sep
+
+dtwidgets = []
+twi = inittitle()
+cwi = initclock()
+wfwi = initwifi()
+sep = initsep()
+for line in sys.stdin:
+    if line.startswith("WM"):
+        handlewm(line, dtwidgets)
+    if line.startswith("T"):
+        handletitle(twi, line)
+    if line.startswith("U"):
+        handleclock(cwi)
+        handlewifi(wfwi)
+    for w in dtwidgets:
+        w.lemonout()
+    twi.lemonout()
+    wfwi.lemonout()
+    sep.lemonout()
+    cwi.lemonout()
+    print("")
+    sys.stdout.flush()

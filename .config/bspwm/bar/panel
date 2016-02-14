@@ -1,0 +1,41 @@
+#! /bin/sh
+
+bspc config top_padding 30
+bspc config left_padding 0
+bspc config right_padding 0
+bspc config bottom_padding 0 
+
+if [ $(pgrep -cx panel) -gt 1 ] ; then
+    printf "%s\n" "The panel is already running." >&2
+    exit 1
+fi
+
+trap 'trap - TERM; kill 0' INT TERM QUIT EXIT
+
+[ -e "$PANEL_FIFO" ] && rm "$PANEL_FIFO"
+mkfifo "$PANEL_FIFO"
+
+bspc control --subscribe > "$PANEL_FIFO" &
+
+#clock -sf 'C%a %d-%b %H:%M' > "$PANEL_FIFO" &
+xtitle -sf 'T%s' > "$PANEL_FIFO" &
+while true; do
+  echo "U" > "$PANEL_FIFO"
+  sleep 5
+done&
+
+#xprop -spy -root _NET_ACTIVE_WINDOW | sed -un 's/.*\(0x.*\)/A\1/p' > "$PANEL_FIFO" &
+# create the toggle file before running this conky
+#~/.config/bspwm/bar/panel_status > "$PANEL_FIFO" &
+
+~/.config/bspwm/bar/panel_config < "$PANEL_FIFO" \
+     | lemonbar -p \
+           -g "1896x30+12" \
+           -B "#181818" \
+           -F "#E8E8E8" \
+	   -f "Terminess Powerline-8" \
+	   -f "Siji-8" \
+	   -u 3 \
+	   | while read line; do eval "$line"; done &
+wait
+

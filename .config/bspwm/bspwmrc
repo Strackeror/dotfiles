@@ -1,0 +1,22 @@
+#! /bin/sh
+
+bspc config border_width        2
+bspc config window_gap         12
+
+bspc config split_ratio         0.52
+bspc config borderless_monocle  true
+bspc config gapless_monocle     true
+bspc config focus_by_distance   true
+
+bspc config normal_border_color "#181818"
+
+bspc monitor -d I II III IV V VI VII VIII IX X
+
+(cd ~/.config/bspwm/bar/; exec ./panel&)
+
+nitrogen --restore&
+compton --config ~/.config/bspwm/compton.conf &
+rofi -key-run SuperL+d -bc "#A8A8A8" -hlbg "#444444"&
+
+bspc rule -a scratchpad floating=on
+
